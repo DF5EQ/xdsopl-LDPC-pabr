@@ -22,10 +22,10 @@ Copyright 2019 <pabr@pabr.org>
 
 #if 0
 #include "flooding_decoder.hh"
-static const int TRIALS = 50;
+static const int DEFAULT_TRIALS = 50;
 #else
 #include "layered_decoder.hh"
-static const int TRIALS = 25;
+static const int DEFAULT_TRIALS = 25;
 #endif
 
 LDPCInterface *create_ldpc(char *standard, char prefix, int number);
@@ -41,7 +41,7 @@ void fatal(const char *msg) {
 }
 
 void usage(const char *name, FILE *f, int c, const char *info=NULL) {
-	fprintf(f, "Usage: %s [--standard DVB-S2] --modcod INT [--shortframes]  < FECFRAMES.int8  > FECFRAMES.int8\n", name);
+	fprintf(f, "Usage: %s [--standard DVB-S2] --modcod INT [--trials INT] [--shortframes]  < FECFRAMES.int8  > FECFRAMES.int8\n", name);
 	if ( info ) fprintf(f, "** Error while processing '%s'\n", info);
 	exit(c);
 }
@@ -50,10 +50,12 @@ int main(int argc, char **argv)
 {
 	const char *standard = "DVB-S2";
 	int modcod = -1;
+	int max_trials = DEFAULT_TRIALS;
 	bool shortframes = false;
 	for ( int i=1; i<argc; ++i ) {
 		if      ( ! strcmp(argv[i],"--standard") && i+1<argc ) standard = argv[++i];
 		else if ( ! strcmp(argv[i],"--modcod") && i+1<argc )   modcod = atoi(argv[++i]);
+		else if ( ! strcmp(argv[i],"--trials") && i+1<argc )   max_trials = atoi(argv[++i]);
 		else if ( ! strcmp(argv[i],"--shortframes") )          shortframes = true;
 		else if ( ! strcmp(argv[i],"-h") )                     usage(argv[0], stdout, 0);
 		else                                                   usage(argv[0], stderr, 1, argv[i]);
@@ -126,7 +128,7 @@ int main(int argc, char **argv)
 			for (int n = 0; n < blocks; ++n)
 				for (int i = 0; i < CODE_LEN; ++i)
 					reinterpret_cast<code_type *>(simd+i)[n] = code[(j+n)*CODE_LEN+i];
-			int trials = TRIALS;
+			int trials = max_trials;
 			int count = decode(simd, simd + DATA_LEN, trials, blocks);
 			++num_decodes;
 			for (int n = 0; n < blocks; ++n)
@@ -134,7 +136,7 @@ int main(int argc, char **argv)
 					code[(j+n)*CODE_LEN+i] = reinterpret_cast<code_type *>(simd+i)[n];
 			if (count < 0) {
 				iterations += blocks * trials;
-				std::cerr << "decoder failed at converging to a code word in " << trials << " trials" << std::endl;
+				// std::cerr << "decoder failed at converging to a code word in " << trials << " trials" << std::endl;
 			} else {
 				iterations += blocks * (trials - count);
 			}
